@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#DDB06A">
+<meta name="description" content="Go-Partien auf einem 19×19-Brett mitschreiben und als SGF kopieren.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Go Kifu">
+<title>Go Kifu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: one-screen recorder — status line, square board, action row; SGF record below */
+:root{
+  --bg:#EDEFF2; --surface:#FFFFFF; --fg:#1B2230; --muted:#5D6677; --line:#D3D8E0;
+  --accent:#2C4A7C; --accent-fg:#FFFFFF; --danger:#A3322A;
+  --kaya:#DDB06A; --kaya-line:#3B2A14; --kaya-label:#6B4E25;
+  --stone-b:#15171A; --stone-b-hi:#4A4E55; --stone-w:#F7F6F2; --stone-w-lo:#C9C7C0; --stone-edge:#8A877F;
+  --ghost:#2C4A7C;
+  --f-display:"Shippori Mincho", "Hiragino Mincho ProN", Georgia, serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151B; --surface:#1B2029; --fg:#E6E9EF; --muted:#98A1B2; --line:#2C3340;
+  --accent:#8FB0E8; --accent-fg:#0F1726; --danger:#F08A80;
+  --kaya:#C4975A; --kaya-line:#2A1D0C; --kaya-label:#4A3415; --ghost:#1E3560; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151B; --surface:#1B2029; --fg:#E6E9EF; --muted:#98A1B2; --line:#2C3340;
+  --accent:#8FB0E8; --accent-fg:#0F1726; --danger:#F08A80;
+  --kaya:#C4975A; --kaya-line:#2A1D0C; --kaya-label:#4A3415; --ghost:#1E3560; color-scheme:dark}
+html,body{height:100%}
+*{-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:12px 28px;box-sizing:border-box}
+.app{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:600;font-size:22px;margin:0;letter-spacing:.02em}
+h1 small{font-family:var(--f-body);font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-left:8px}
+.status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.turn{display:flex;align-items:center;gap:8px;font-weight:600}
+.dot{width:16px;height:16px;border-radius:50%;display:inline-block;border:1px solid var(--stone-edge)}
+.dot.b{background:var(--stone-b)} .dot.w{background:var(--stone-w)}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:12px;align-items:center}
+.boardwrap{width:min(100%, calc(100dvh - 210px));min-width:min(100%,300px);margin:0 auto;aspect-ratio:1;max-width:100%}
+svg#board{display:block;width:100%;height:100%;border-radius:6px;background:var(--kaya);
+  box-shadow:0 1px 0 rgba(0,0,0,.08),0 6px 18px rgba(30,25,10,.18);touch-action:manipulation;user-select:none;-webkit-user-select:none;cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-weight:500;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  padding:10px 14px;min-height:44px;cursor:pointer;flex:1 1 0;white-space:nowrap}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.danger{color:var(--danger)}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opts{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+section.sgf{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.sgfhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sgfhead h2{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+.sgfhead button{flex:0 0 auto}
+textarea{font-family:var(--f-mono);font-size:12.5px;line-height:1.5;width:100%;box-sizing:border-box;min-height:120px;resize:vertical;
+  background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border:1px solid var(--danger);border-radius:8px}
+.confirm span{flex:1 1 100%;font-size:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);
+  padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Go Kifu<small>19 × 19</small></h1>
+  </header>
+
+  <div class="status">
+    <div class="meta"><span id="moveNo">Zug 0</span><span id="caps">Gef. ● 0 · ○ 0</span></div>
+  </div>
+
+  <div class="boardwrap"><svg id="board" viewBox="0.45 0.45 19.1 19.1" role="img" aria-label="Go-Brett 19 mal 19"></svg></div>
+
+  <div class="row">
+    <button id="undo">Rückgängig</button>
+    <button id="pass">Passen</button>
+  </div>
+
+  <div class="opts">
+    <span>Letzten Stein antippen nimmt ihn zurück.</span>
+  </div>
+
+  <section class="sgf">
+    <div class="row"><button id="copy" class="primary">SGF kopieren</button><button id="newGame" class="danger">Neue Partie</button></div>
+    <textarea id="sgfText" readonly spellcheck="false" aria-label="SGF-Text" hidden></textarea>
+    <div id="confirmBox" class="confirm" hidden>
+      <button id="newYes" class="danger">Ja, löschen</button>
+      <button id="newNo">Abbrechen</button>
+    </div>
+  </section>
+</div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+(function(){
+const N=19, LET="ABCDEFGHJKLMNOPQRST", KEY="gokifu-v1";
+const svg=document.getElementById("board");
+let state={moves:[],date:today(),showNums:false,confirmMode:true};
+let pending=null, cur=null;
+
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s&&Array.isArray(s.moves))state=Object.assign(state,s)}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+
+function nb(p){const x=p%N,y=(p/N)|0,r=[];if(x>0)r.push(p-1);if(x<N-1)r.push(p+1);if(y>0)r.push(p-N);if(y<N-1)r.push(p+N);return r}
+function group(b,p){const c=b[p],seen=new Set([p]),st=[p],libs=new Set();
+  while(st.length){const q=st.pop();for(const n of nb(q)){if(b[n]===0)libs.add(n);else if(b[n]===c&&!seen.has(n)){seen.add(n);st.push(n)}}}
+  return {stones:[...seen],libs}}
+function tryPlay(b,c,p,ko){
+  if(b[p]!==0||p===ko)return null;
+  const n2=b.slice();n2[p]=c;const opp=3-c;let cap=[];
+  for(const n of nb(p)){if(n2[n]===opp){const g=group(n2,n);if(g.libs.size===0){for(const s of g.stones)n2[s]=0;cap=cap.concat(g.stones)}}}
+  const g=group(n2,p);if(g.libs.size===0)return null;
+  const newKo=(cap.length===1&&g.stones.length===1&&g.libs.size===1)?cap[0]:-1;
+  return {b:n2,cap:cap.length,ko:newKo}}
+function replay(){
+  let b=new Array(N*N).fill(0),ko=-1;const caps={1:0,2:0},num=new Array(N*N).fill(0);
+  state.moves.forEach((m,i)=>{if(m.p<0){ko=-1;return}const r=tryPlay(b,m.c,m.p,ko);if(!r)return;b=r.b;ko=r.ko;caps[m.c]+=r.cap;num[m.p]=i+1});
+  return {b,ko,caps,num}}
+function turn(){return state.moves.length%2===0?1:2}
+function coord(p){return LET[p%N]+(N-((p/N)|0))}
+
+/* static board */
+function drawStatic(){
+  let s='<defs><radialGradient id="gb" cx="35%" cy="30%" r="70%"><stop offset="0" style="stop-color:var(--stone-b-hi)"/><stop offset="1" style="stop-color:var(--stone-b)"/></radialGradient>'+
+  '<radialGradient id="gw" cx="35%" cy="30%" r="75%"><stop offset="0.5" style="stop-color:var(--stone-w)"/><stop offset="1" style="stop-color:var(--stone-w-lo)"/></radialGradient></defs><g style="stroke:var(--kaya-line)" stroke-width="0.04">';
+  for(let i=1;i<=N;i++){s+=`<line x1="1" y1="${i}" x2="19" y2="${i}"/><line x1="${i}" y1="1" x2="${i}" y2="19"/>`}
+  s+='<rect x="1" y="1" width="18" height="18" fill="none" stroke-width="0.07"/></g><g style="fill:var(--kaya-line)">';
+  for(const a of [4,10,16])for(const b of [4,10,16])s+=`<circle cx="${a}" cy="${b}" r="0.13"/>`;
+  s+='</g><g id="stones"></g><g id="overlay"></g>';svg.innerHTML=s}
+
+function render(){
+  cur=replay();const {b,caps,num}=cur;const last=state.moves[state.moves.length-1];
+  let s="";
+  for(let p=0;p<N*N;p++){if(!b[p])continue;const x=p%N+1,y=((p/N)|0)+1,blk=b[p]===1;
+    s+=blk?`<circle cx="${x}" cy="${y}" r="0.47" fill="url(#gb)"/>`:`<circle cx="${x}" cy="${y}" r="0.46" fill="url(#gw)" style="stroke:var(--stone-edge)" stroke-width="0.035"/>`;
+    if(state.showNums&&num[p]){const n=num[p],fs=n>99?0.32:0.42;
+      s+=`<text x="${x}" y="${y}" font-size="${fs}" font-family="IBM Plex Sans, system-ui, sans-serif" font-weight="600" text-anchor="middle" dominant-baseline="central" style="fill:${blk?"var(--stone-w)":"var(--stone-b)"}">${n}</text>`}}
+  document.getElementById("stones").innerHTML=s;
+  let o="";
+  if(last&&last.p>=0&&b[last.p]&&!state.showNums){const x=last.p%N+1,y=((last.p/N)|0)+1;
+    o+=`<circle cx="${x}" cy="${y}" r="0.2" fill="none" stroke-width="0.06" style="stroke:${b[last.p]===1?"var(--stone-w)":"var(--stone-b)"}"/>`}
+  document.getElementById("overlay").innerHTML=o;
+  const lastTxt=last&&last.p<0?" (Pass)":"";
+  document.getElementById("moveNo").textContent="Zug "+state.moves.length+lastTxt;
+  document.getElementById("caps").textContent="Gef. ● "+caps[1]+" · ○ "+caps[2];
+  document.getElementById("undo").disabled=state.moves.length===0;
+  document.getElementById("sgfText").value=sgf();
+}
+
+function sgf(){
+  const ab="abcdefghijklmnopqrs";
+  let s="(;GM[1]FF[4]CA[UTF-8]SZ[19]RU[Japanese]KM[6.5]DT["+state.date+"]AP[Go Kifu]\n";
+  state.moves.forEach((m,i)=>{s+=";"+(m.c===1?"B":"W")+"["+(m.p<0?"":ab[m.p%N]+ab[(m.p/N)|0])+"]";if((i+1)%10===0)s+="\n"});
+  return s.replace(/\n$/,"")+")"}
+
+function commit(p){
+  const r=tryPlay(cur.b,turn(),p,cur.ko);
+  if(!r){toast(p===cur.ko?"Ko: hier darfst du gerade nicht schlagen.":"Selbstmord ist nicht erlaubt.");return}
+  state.moves.push({c:turn(),p});save();render();wake()}
+
+function pointFrom(ev){const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+  const x=Math.round(q.x)-1,y=Math.round(q.y)-1;if(x<0||y<0||x>=N||y>=N)return null;return y*N+x}
+
+svg.addEventListener("click",ev=>{const p=pointFrom(ev);if(p===null)return;
+  const last=state.moves[state.moves.length-1];
+  if(cur.b[p]){if(last&&last.p===p){state.moves.pop();save();render();toast("Zug "+(state.moves.length+1)+" zurückgenommen")}return}
+  commit(p)});
+document.getElementById("undo").onclick=()=>{state.moves.pop();save();render()};
+document.getElementById("pass").onclick=()=>{const t=turn();state.moves.push({c:t,p:-1});save();render();toast((t===1?"Schwarz":"Weiß")+" passt")};
+
+document.getElementById("copy").onclick=()=>{const ta=document.getElementById("sgfText"),txt=ta.value;
+  const fallback=()=>{ta.hidden=false;ta.focus();ta.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}toast(ok?"SGF kopiert":"Text ist markiert – bitte manuell kopieren")};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast("SGF kopiert"),fallback)}else fallback()};
+
+const box=document.getElementById("confirmBox");
+document.getElementById("newGame").onclick=()=>{box.hidden=false};
+document.getElementById("newNo").onclick=()=>{box.hidden=true};
+document.getElementById("newYes").onclick=()=>{state.moves=[];state.date=today();box.hidden=true;save();render();toast("Neue Partie gestartet")};
+
+let tmr;function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(tmr);tmr=setTimeout(()=>t.classList.remove("show"),1800)}
+let lock=null;async function wake(){try{if(!lock&&navigator.wakeLock){lock=await navigator.wakeLock.request("screen");lock.addEventListener("release",()=>{lock=null})}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&state.moves.length)wake()});
+
+load();state.showNums=false;drawStatic();render();
+})();
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(function(){})}</script>
+</body>
+</html>
