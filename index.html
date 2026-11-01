@@ -51,12 +51,13 @@ h1 small{font-family:var(--f-body);font-size:12px;font-weight:500;color:var(--mu
 svg#board{display:block;width:100%;height:100%;border-radius:6px;background:var(--kaya);
   box-shadow:0 1px 0 rgba(0,0,0,.08),0 6px 18px rgba(30,25,10,.18);touch-action:manipulation;user-select:none;-webkit-user-select:none;cursor:pointer}
 .row{display:flex;gap:8px;flex-wrap:wrap}
-button{font:inherit;font-weight:500;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);
-  padding:10px 14px;min-height:44px;cursor:pointer;flex:1 1 0;white-space:nowrap}
+button,.btn{font:inherit;font-weight:500;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  padding:10px 14px;min-height:44px;cursor:pointer;flex:1 1 0;white-space:nowrap;box-sizing:border-box}
+.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:inherit;line-height:normal}
 button:disabled{opacity:.4;cursor:default}
 button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 button.danger{color:var(--danger)}
-button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,.btn:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .opts{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
 .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
 section.sgf{display:flex;flex-direction:column;gap:8px;margin-top:4px}
@@ -92,7 +93,7 @@ textarea{font-family:var(--f-mono);font-size:12.5px;line-height:1.5;width:100%;b
   </div>
 
   <section class="sgf">
-    <div class="row"><button id="copy">SGF kopieren</button><button id="newGame">Neue Partie</button></div>
+    <div class="row"><button id="copy">SGF kopieren</button><a id="sensei" class="btn" href="https://ai-sensei.com/upload" target="_blank" rel="noopener">An AI Sensei</a><button id="newGame">Neue Partie</button></div>
     <textarea id="sgfText" readonly spellcheck="false" aria-label="SGF-Text" hidden></textarea>
     <div id="confirmBox" class="confirm" hidden>
       <button id="newYes" class="danger">Ja, löschen</button>
@@ -156,7 +157,8 @@ function render(){
   document.getElementById("moveNo").textContent="Zug "+state.moves.length+lastTxt;
   document.getElementById("caps").textContent="Gef. ● "+caps[1]+" · ○ "+caps[2];
   document.getElementById("undo").disabled=state.moves.length===0;
-  document.getElementById("sgfText").value=sgf();
+  const sg=sgf();document.getElementById("sgfText").value=sg;
+  document.getElementById("sensei").href="https://ai-sensei.com/upload?sgf="+encodeURIComponent(sg);
 }
 
 function sgf(){
